@@ -169,23 +169,17 @@
     <h2>2. 네트워크 구조</h2>
     <div class="diagram">
         [ Internet ]
-        │  Public IP : 218.55.@@@.@@@
+        │  Public IP : xxx.xxx.xxx.xxx
         ▼
         [ NAS (Edge Gateway) ]
         └─ HAProxy (Docker)
         ├─ SSL Termination (Certbot)
         ├─ Domain / Path / Header Routing
+        │    ├─ *.internal-dev.example.com
+        │    ├─ *.internal-service.example.com
+        │    └─ www.public-service.example.com
         ├─ 사내망 전용 서비스 접근 제어
         └─ Kubernetes Ingress (NodePort)
-        ├─ HTTP  : 32080
-        └─ HTTPS : 32443
-        ▼
-        [ Kubernetes Cluster ]
-        ├─ Master  (Private Network)
-        └─ Workers (Private Network)
-
-        [ Standalone Server ]
-        └─ Windows Server (Non-K8s)
     </div>
 
     <h2>3. 트래픽 라우팅 전략</h2>
@@ -197,10 +191,11 @@
     <div class="grid">
         <div class="card">
             <b>도메인 기반</b><br/>
-            *.mobile-rmtechs.com<br/>
-            *.forsafety.kr<br/>
-            www.forcitizen.kr
+            *.internal-dev.example.com<br/>
+            *.internal-service.example.com<br/>
+            www.public-service.example.com
         </div>
+
 
         <div class="card">
             <b>경로 기반</b><br/>
@@ -225,6 +220,11 @@
         로컬 요청에 특정 Header를 추가하여
         HAProxy에서 이를 인식하고
         <b>실제 도메인으로 접근한 것처럼 라우팅</b>되도록 구성했습니다.
+    </p>
+    <p>
+        본 문서에 사용된 도메인 및 네트워크 정보는
+        실제 운영 환경을 기반으로 한 <b>예시(example)</b>이며,
+        보안 및 회사 정책에 따라 일부 정보는 비식별화되었습니다.
     </p>
 
     <h2>4. 접근 제어 정책</h2>
