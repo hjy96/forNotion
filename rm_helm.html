@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Internal DevOps Platform (Helm) | Portfolio</title>
+
+    <style>
+        :root{
+            --bg:#f6f7fb;
+            --card:#ffffff;
+            --line:#e5e7eb;
+            --text:#111827;
+            --sub:#475569;
+            --accent:#2563eb;
+            --good:#16a34a;
+            --warn:#d97706;
+            --code-bg:#0f172a;
+            --code-text:#e5e7eb;
+        }
+        *{box-sizing:border-box}
+        body{
+            margin:0;
+            background:var(--bg);
+            color:var(--text);
+            font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Inter","Segoe UI",Roboto,Arial,sans-serif;
+            line-height:1.65;
+        }
+        .container{max-width:1100px;margin:0 auto;padding:48px 20px 80px}
+        h1{font-size:28px;margin:0 0 8px}
+        h2{margin:38px 0 14px;font-size:22px;border-left:5px solid var(--accent);padding-left:14px}
+        h3{margin:22px 0 10px;font-size:16px;color:var(--sub)}
+        p{margin:6px 0 14px;color:#374151}
+        .badges{margin:0 0 14px}
+        .badge{
+            display:inline-block;padding:6px 12px;border-radius:999px;
+            background:#eef2ff;color:var(--accent);font-size:12px;font-weight:700;margin:0 6px 8px 0;
+        }
+        .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:18px 0 26px}
+        .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+        .card b{color:var(--accent)}
+        .diagram{
+            background:var(--code-bg);color:var(--code-text);
+            border-radius:16px;padding:18px;font-size:13px;white-space:pre;overflow-x:auto;
+        }
+        .kpi{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 0}
+        .pill{
+            display:inline-flex;align-items:center;gap:8px;
+            padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;
+            font-size:13px;color:#111827;
+        }
+        .dot{width:10px;height:10px;border-radius:50%}
+        .dot.good{background:var(--good)}
+        .dot.warn{background:var(--warn)}
+        ul{margin:10px 0 0;padding-left:18px}
+        code{background:#eef2ff;padding:2px 6px;border-radius:6px}
+        .note{
+            border:1px dashed var(--line);
+            background:#fff;border-radius:16px;padding:14px 16px;color:#334155;
+        }
+        footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);color:#475569;font-size:14px}
+    </style>
+</head>
+
+<body>
+<div class="container">
+    <div class="badges">
+        <span class="badge">Helm</span>
+        <span class="badge">Gitea</span>
+        <span class="badge">Harbor</span>
+        <span class="badge">Jenkins</span>
+        <span class="badge">Kubernetes</span>
+        <span class="badge">Traefik</span>
+        <span class="badge">NFS CSI</span>
+        <span class="badge">On-Premise</span>
+    </div>
+
+    <h1>사내 DevOps 플랫폼 구축 (Gitea · Harbor · Jenkins / Helm 기반)</h1>
+    <p>
+        폐쇄망(온프레미스) 환경에서 외부 SaaS 의존 없이 <b>코드 저장소 → 이미지 레지스트리 → CI</b>까지
+        일관된 DevOps 플랫폼을 구축했습니다. 각 컴포넌트는 <b>Helm Chart로 표준화</b>하여 재현성 있게 운영했고,
+        Traefik Ingress 및 스토리지(NFS CSI)를 포함한 <b>운영 관점의 설정</b>을 함께 정리했습니다.
+    </p>
+
+    <div class="kpi">
+        <div class="pill"><span class="dot good"></span><b>Helm</b>으로 구성/업그레이드 표준화</div>
+        <div class="pill"><span class="dot good"></span>Traefik <b>IngressRoute</b>로 라우팅 일원화</div>
+        <div class="pill"><span class="dot good"></span><b>NFS CSI</b> 기반 PV/PVC로 데이터 영속성 확보</div>
+        <div class="pill"><span class="dot warn"></span>민감정보는 포트폴리오에서 <b>Secret로 대체</b>(값 마스킹)</div>
+    </div>
+
+    <h2>1. 전체 구성 개요</h2>
+    <div class="diagram">
+        [ Developer ]
+        │  git push
+        ▼
+        [ Gitea (On-Prem Git) ]
+        │  webhook / poll
+        ▼
+        [ Jenkins (K8s Controller + Agent Pod) ]
+        │  build & push
+        ▼
+        [ Harbor (Private Registry + Trivy) ]
+        │  image pull
+        ▼
+        [ Runtime (Kubernetes / Docker Hosts) ]
+
+        * 본 문서 범위: Gitea / Harbor / Jenkins (Helm 기반 구축)
+        * 관측성(OpenTelemetry/SigNoz)은 별도 문서로 분리
+    </div>
+
+    <h2>2. 공통 운영 원칙</h2>
+    <div class="grid">
+        <div class="card">
+            <b>Helm 기반 표준화</b>
+            <ul>
+                <li>구성값은 <code>values.yaml</code>로 코드화</li>
+                <li>릴리즈 이력 추적 및 손쉬운 롤백(helm history/rollback)</li>
+                <li>환경별 값 분리(예: <code>current-values.yaml</code>)</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>Ingress 일원화 (Traefik)</b>
+            <ul>
+                <li>각 서비스 chart 내 ingress는 최소화</li>
+                <li>Traefik <code>IngressRoute</code>에서 라우팅/보안 정책 통제</li>
+                <li>필요 시 IP Allowlist 같은 미들웨어 적용</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>스토리지/데이터 영속성</b>
+            <ul>
+                <li>NFS CSI 기반 StorageClass 통일</li>
+                <li>중요 데이터는 <code>resourcePolicy: keep</code>로 보호</li>
+                <li>재배포/업그레이드 시 데이터 유지</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>3. Gitea (Helm) 구성</h2>
+    <p>
+        사내 Git 서버를 Helm으로 구성하고, 고가용성(PostgreSQL HA) 및 스토리지(NFS CSI),
+        SSH 포트 운영 정책 등을 적용했습니다.
+    </p>
+
+    <h3>3-1. 핵심 설정 포인트</h3>
+    <div class="grid">
+        <div class="card">
+            <b>IngressRoute로 외부 진입 통제</b>
+            <ul>
+                <li>Chart 내 ingress 비활성화 → Traefik에서 라우팅</li>
+                <li>도메인 기반 접근: <code>gitea.mobile-rmtechs.com</code></li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>Rootless 이미지 사용</b>
+            <ul>
+                <li><code>image.rootless: true</code> 설정</li>
+                <li>Pod 보안 정책과 충돌 최소화</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>PostgreSQL HA + Redis Cluster</b>
+            <ul>
+                <li>내장 DB 대신 <code>postgresql-ha</code> confirm</li>
+                <li>Redis cluster로 세션/캐시 안정화</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>3-2. 발췌 코드 (values.yaml / ingressroute)</h3>
+    <div class="diagram">
+        # Gitea values (발췌)
+        global:
+        storageClass: nfs-csi
+
+        image:
+        repository: gitea/gitea
+        rootless: true
+
+        gitea:
+        config:
+        server:
+        SSH_LISTEN_PORT: 2222
+        SSH_PORT: 22
+
+        persistence:
+        enabled: true
+        storageClass: nfs-csi
+        accessModes: [ "ReadWriteMany" ]
+        annotations:
+        helm.sh/resource-policy: keep
+
+        postgresql:
+        enabled: false
+        postgresql-ha:
+        enabled: true
+
+        redis-cluster:
+        enabled: true
+        cluster:
+        nodes: 3
+        replicas: 0
+    </div>
+
+    <div class="diagram">
+        # Traefik IngressRoute (Gitea)
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+        name: gitea
+        namespace: traefik
+        spec:
+        entryPoints: [ web, websecure ]
+        routes:
+        - match: Host(`gitea.mobile-rmtechs.com`) && PathPrefix(`/`)
+        kind: Rule
+        services:
+        - name: gitea-http
+        namespace: gitea
+        port: 3000
+        middlewares:
+        - name: ipallowlist
+        tls:
+        secretName: traefik-tls
+    </div>
+
+    <div class="note">
+        <b>보안 메모</b><br/>
+        관리자 계정/비밀번호 등 민감정보는 실제 운영에서는 Kubernetes Secret으로 관리했고,
+        포트폴리오에는 값이 노출되지 않도록 마스킹하여 정리했습니다.
+    </div>
+
+    <h2>4. Harbor (Helm) 구성</h2>
+    <p>
+        Private Container Registry로 Harbor를 구축하여 Jenkins 빌드 산출물의 단일 저장소로 사용했습니다.
+        Ingress + TLS, PV 영속성, Trivy 취약점 스캔을 포함해 운영 환경에 맞게 구성했습니다.
+    </p>
+
+    <h3>4-1. 핵심 설정 포인트</h3>
+    <div class="grid">
+        <div class="card">
+            <b>Ingress + TLS (externalURL 일치)</b>
+            <ul>
+                <li><code>externalURL</code>을 실제 도메인과 동일하게 설정</li>
+                <li>Token 발급/클라이언트 로그인 안정화</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>PV 보호 정책</b>
+            <ul>
+                <li><code>resourcePolicy: keep</code>로 PVC 삭제 방지</li>
+                <li>레지스트리 이미지/메타데이터 보존</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>Trivy 취약점 스캔</b>
+            <ul>
+                <li>이미지 보안 점검 자동화</li>
+                <li>폐쇄망에서도 운영 가능한 형태로 구성</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>4-2. 발췌 코드 (values.yaml)</h3>
+    <div class="diagram">
+        # Harbor values (발췌)
+        expose:
+        type: ingress
+        tls:
+        enabled: true
+        ingress:
+        hosts:
+        core: harbor.mobile-rmtechs.com
+
+        externalURL: https://harbor.mobile-rmtechs.com
+
+        persistence:
+        enabled: true
+        resourcePolicy: "keep"
+        persistentVolumeClaim:
+        registry:
+        storageClass: "nfs-csi"
+        size: 5Gi
+        jobservice:
+        jobLog:
+        storageClass: "nfs-csi"
+        size: 1Gi
+        database:
+        storageClass: "nfs-csi"
+        size: 1Gi
+        redis:
+        storageClass: "nfs-csi"
+        size: 1Gi
+        trivy:
+        storageClass: "nfs-csi"
+        size: 5Gi
+
+        trivy:
+        enabled: true
+        severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
+    </div>
+
+    <h2>5. Jenkins (Helm) 구성</h2>
+    <p>
+        Jenkins Controller는 Stateful로 운영하고, 빌드 워크로드는 Kubernetes Agent Pod로 분리해 확장성과 격리성을 확보했습니다.
+        Traefik IngressRoute로 접근을 통제하며, Controller는 <b>Non-root</b>로 실행되도록 보안 설정을 적용했습니다.
+    </p>
+
+    <h3>5-1. 핵심 설정 포인트</h3>
+    <div class="grid">
+        <div class="card">
+            <b>Non-root 실행</b>
+            <ul>
+                <li><code>runAsUser: 1000</code>, <code>fsGroup: 1000</code></li>
+                <li><code>allowPrivilegeEscalation: false</code></li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>Ingress 분리 운영</b>
+            <ul>
+                <li>Chart 내 ingress는 비활성화</li>
+                <li>Traefik에서 TLS 및 미들웨어 정책 적용</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>PV 영속성</b>
+            <ul>
+                <li><code>storageClass: nfs-csi</code></li>
+                <li>Controller 설정/플러그인/Job 설정 데이터 유지</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3>5-2. 발췌 코드 (values.yaml / ingressroute)</h3>
+    <div class="diagram">
+        # Jenkins values (발췌)
+        controller:
+        jenkinsUrl: https://jenkins.mobile-rmtechs.com
+        serviceType: ClusterIP
+
+        # Non-root
+        runAsUser: 1000
+        fsGroup: 1000
+        podSecurityContextOverride:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        containerSecurityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        allowPrivilegeEscalation: false
+
+        # Ingress는 Traefik에서 관리
+        ingress:
+        enabled: false
+
+        persistence:
+        enabled: true
+        storageClass: nfs-csi
+        accessMode: ReadWriteOnce
+        size: 8Gi
+    </div>
+
+    <div class="diagram">
+        # Traefik IngressRoute (Jenkins)
+        apiVersion: traefik.io/v1alpha1
+        kind: IngressRoute
+        metadata:
+        name: jenkins
+        namespace: traefik
+        spec:
+        entryPoints:
+        - web
+        - websecure
+        routes:
+        - match: Host(`jenkins.mobile-rmtechs.com`) && PathPrefix(`/`)
+        kind: Rule
+        services:
+        - name: jenkins
+        namespace: jenkins
+        port: 8080
+        middlewares:
+        - name: ipallowlist
+        tls:
+        secretName: traefik-tls
+    </div>
+
+    <h2>6. 운영 안정성 포인트</h2>
+    <div class="grid">
+        <div class="card">
+            <b>네임스페이스 분리</b>
+            <ul>
+                <li>서비스별 Namespace로 격리(권한/리소스 분리)</li>
+                <li>IngressRoute는 traefik namespace에서 중앙 관리</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>스토리지 정책 통일</b>
+            <ul>
+                <li>공통 StorageClass: <code>nfs-csi</code></li>
+                <li>서비스 재배포 시 데이터 보존</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b>보안/비밀 관리</b>
+            <ul>
+                <li>비밀번호/토큰은 Secret로 관리</li>
+                <li>포트폴리오에는 민감 값 노출 방지</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <b>요약</b><br/>
+        온프레미스 환경에서 Gitea · Harbor · Jenkins를 Helm으로 표준화하여 설치/업그레이드/복구가 가능한
+        사내 DevOps 플랫폼을 구축했습니다. Traefik IngressRoute로 접근 정책을 통합하고, NFS CSI 기반 스토리지로
+        데이터 영속성을 확보했습니다. (관측성 OpenTelemetry/SigNoz는 별도 문서로 분리)
+    </footer>
+</div>
+</body>
+</html>
