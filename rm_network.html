@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>On-Premise Network Architecture | Portfolio</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --card: #121832;
+            --line: #2a315f;
+            --text: #e8ecff;
+            --sub: #b8c0ff;
+            --accent: #6ea8fe;
+            --good: #6ee7b7;
+            --warn: #facc15;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            background: linear-gradient(180deg, #0b1020, #0f1530);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, "Pretendard",
+            "Inter", "Segoe UI", Roboto, Arial, sans-serif;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 40px 20px 80px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin: 0 0 8px;
+        }
+
+        h2 {
+            margin: 36px 0 12px;
+            font-size: 22px;
+            border-left: 4px solid var(--accent);
+            padding-left: 12px;
+        }
+
+        h3 {
+            margin: 20px 0 8px;
+            font-size: 16px;
+            color: var(--sub);
+        }
+
+        p {
+            margin: 6px 0 14px;
+            color: #d7dcff;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(110,168,254,0.15);
+            color: var(--accent);
+            font-size: 12px;
+            margin-right: 6px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin: 14px 0 20px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+
+        .card b {
+            color: var(--accent);
+        }
+
+        .diagram {
+            background: #070b1a;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+            overflow-x: auto;
+            font-size: 13px;
+            white-space: pre;
+            color: #e8ecff;
+        }
+
+        .two {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        @media (max-width: 800px) {
+            .two { grid-template-columns: 1fr; }
+        }
+
+        .ok { color: var(--good); }
+        .warn { color: var(--warn); }
+
+        footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid var(--line);
+            color: #9aa4ff;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <span class="badge">On-Premise</span>
+    <span class="badge">DevOps</span>
+    <span class="badge">Network</span>
+
+    <h1>사내망 DevOps / 네트워크 아키텍처</h1>
+    <p>
+        사내망 환경에서 개발·배포·운영을 위해 인프라를 직접 설계하고 구축했습니다.
+        NAS를 Edge Gateway로 사용하여 외부 공개 서비스와 사내 전용 서비스를 분리했습니다.
+    </p>
+
+    <h2>1. 인프라 개요</h2>
+    <div class="grid">
+        <div class="card">
+            <b>Public IP</b><br/>
+            218.55.177.5
+        </div>
+        <div class="card">
+            <b>NAS (Edge Gateway)</b><br/>
+            192.168.0.30<br/>
+            HAProxy (Docker) + Certbot
+        </div>
+        <div class="card">
+            <b>Kubernetes Master</b><br/>
+            192.168.0.25 (Ubuntu)
+        </div>
+        <div class="card">
+            <b>Kubernetes Workers</b><br/>
+            192.168.0.117 ~ 119
+        </div>
+        <div class="card">
+            <b>Standalone Server</b><br/>
+            192.168.0.24 (Windows)
+        </div>
+    </div>
+
+    <h2>2. 네트워크 구조</h2>
+    <div class="diagram">
+        [ Internet ]
+        │  Public IP : 218.55.177.5
+        ▼
+        [ NAS (192.168.0.30) ]
+        └─ HAProxy (Docker)
+        ├─ SSL Termination (Certbot)
+        ├─ Domain / Path / Header Routing
+        ├─ 사내망 전용 서비스 접근 제어
+        └─ Kubernetes Ingress (NodePort)
+        ├─ HTTP  : 32080
+        └─ HTTPS : 32443
+        ▼
+        [ Kubernetes Cluster ]
+        ├─ Master  : 192.168.0.25
+        └─ Workers : 192.168.0.117 ~ 119
+
+        [ Standalone Server ]
+        └─ 192.168.0.24 (Windows, Non-K8s)
+    </div>
+
+    <h2>3. 트래픽 라우팅 전략</h2>
+    <p>
+        HAProxy를 단일 진입점으로 사용하여 도메인, 경로, 헤더 기준으로 트래픽을 분기했습니다.
+    </p>
+    <div class="grid">
+        <div class="card">
+            <b>도메인 기반</b><br/>
+            *.mobile-rmtechs.com<br/>
+            *.forsafety.kr<br/>
+            www.forcitizen.kr
+        </div>
+        <div class="card">
+            <b>경로 기반</b><br/>
+            /api, /API → API<br/>
+            /ws, /websocket → WebSocket<br/>
+            /pos, /cs → 내부 서비스
+        </div>
+        <div class="card">
+            <b>헤더 기반</b><br/>
+            X-*-Computer 헤더를 이용한<br/>
+            개발/테스트 환경 분리
+        </div>
+    </div>
+
+    <h2>4. 접근 제어 정책</h2>
+    <div class="two">
+        <div class="card">
+            <b class="ok">외부 접근 가능</b>
+            <ul>
+                <li>Public 도메인 서비스</li>
+                <li>Kubernetes Ingress 노출 서비스</li>
+                <li>HTTPS 종단은 NAS에서 처리</li>
+            </ul>
+        </div>
+        <div class="card">
+            <b class="warn">사내망 전용</b>
+            <ul>
+                <li>개발/테스트 Frontend</li>
+                <li>관리자·내부 운영 페이지</li>
+                <li>헤더 기반 접근 제어 서비스</li>
+                <li>Windows 단독 서비스</li>
+            </ul>
+        </div>
+    </div>
+
+    <h2>5. 사용 기술</h2>
+    <p>
+        HAProxy · Nginx · Caddy · Traefik<br/>
+        Docker · Kubernetes · Jenkins · Harbor · Gitea · SigNoz
+    </p>
+
+    <footer>
+        <b>요약</b><br/>
+        NAS를 Edge Gateway로 사용해 외부 공개 서비스와 사내 전용 서비스를 분리하고,
+        HAProxy와 Kubernetes Ingress를 연동한 온프레미스 DevOps 네트워크를 구축·운영했습니다.
+    </footer>
+
+</div>
+</body>
+</html>
