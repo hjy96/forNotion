@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <title>Observability (OpenTelemetry + SigNoz) Portfolio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+        :root{
+            --bg:#f6f7fb;
+            --card:#ffffff;
+            --line:#e5e7eb;
+            --text:#111827;
+            --sub:#475569;
+            --accent:#2563eb;
+            --good:#16a34a;
+            --warn:#d97706;
+            --code-bg:#0f172a;
+            --code-text:#e5e7eb;
+        }
+
+        *{box-sizing:border-box}
+
+        body{
+            margin:0;
+            background:var(--bg);
+            color:var(--text);
+            font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Inter","Segoe UI",Roboto,Arial,sans-serif;
+            line-height:1.65;
+        }
+
+        /* ===== Header → 기존 container 톤으로 흡수 ===== */
+        header{
+            max-width:1100px;
+            margin:0 auto;
+            padding:48px 20px 32px;
+            background:transparent;
+            border-bottom:1px solid var(--line);
+        }
+
+        header h1{
+            font-size:28px;
+            margin:0 0 8px;
+        }
+
+        header p{
+            margin:6px 0 0;
+            color:#374151;
+            max-width:none;
+            font-size:14px;
+        }
+
+        /* ===== Section ===== */
+        section{
+            max-width:1100px;
+            margin:0 auto;
+            padding:48px 20px;
+        }
+
+        /* ===== Headings ===== */
+        h2{
+            margin:38px 0 14px;
+            font-size:22px;
+            border-left:5px solid var(--accent);
+            padding-left:14px;
+        }
+
+        h3{
+            margin:22px 0 10px;
+            font-size:16px;
+            color:var(--sub);
+        }
+
+        p{
+            margin:6px 0 14px;
+            color:#374151;
+        }
+
+        .muted{color:var(--sub)}
+
+        /* ===== Grid / Card ===== */
+        .grid{
+            display:grid;
+            grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+            gap:16px;
+            margin:18px 0 26px;
+        }
+
+        .card{
+            background:var(--card);
+            border:1px solid var(--line);
+            border-radius:16px;
+            padding:16px 18px;
+        }
+
+        .card b{color:var(--accent)}
+
+        /* ===== KPI ===== */
+        .kpi{
+            display:flex;
+            gap:10px;
+            flex-wrap:wrap;
+            margin:8px 0 0;
+        }
+
+        .kpi .item{
+            background:#fff;
+            border:1px solid var(--line);
+            border-radius:16px;
+            padding:12px 14px;
+            min-width:200px;
+        }
+
+        .kpi .title{
+            font-size:12px;
+            color:var(--sub);
+        }
+
+        .kpi .value{
+            font-size:14px;
+            font-weight:700;
+            margin-top:6px;
+        }
+
+        /* ===== Pills ===== */
+        .pill{
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:8px 12px;
+            border:1px solid var(--line);
+            border-radius:999px;
+            background:#fff;
+            font-size:13px;
+            color:#111827;
+            margin-right:6px;
+            margin-bottom:6px;
+        }
+
+        .pill.ok{
+            color:var(--good);
+            border-color:rgba(22,163,74,0.35);
+        }
+
+        .pill.warn{
+            color:var(--warn);
+            border-color:rgba(217,119,6,0.35);
+        }
+
+        .dot{
+            width:10px;
+            height:10px;
+            border-radius:50%;
+        }
+        .dot.good{background:var(--good)}
+        .dot.warn{background:var(--warn)}
+
+        /* ===== Highlight ===== */
+        .highlight{
+            color:var(--accent);
+            font-weight:700;
+        }
+
+        /* ===== Code / Diagram ===== */
+        pre{
+            background:var(--code-bg);
+            color:var(--code-text);
+            border-radius:16px;
+            padding:18px;
+            font-size:13px;
+            white-space:pre;
+            overflow-x:auto;
+            margin-top:14px;
+            border:none;
+        }
+
+        code{
+            background:#eef2ff;
+            padding:2px 6px;
+            border-radius:6px;
+            color:var(--accent);
+            font-size:13px;
+        }
+
+        /* ===== List ===== */
+        ul{
+            margin:10px 0 0;
+            padding-left:18px;
+        }
+        li{margin-bottom:8px}
+
+        /* ===== Footer ===== */
+        footer{
+            max-width:1100px;
+            margin:60px auto 0;
+            padding:24px 20px;
+            border-top:1px solid var(--line);
+            color:#475569;
+            font-size:14px;
+            text-align:center;
+        }
+    </style>
+
+
+</head>
+
+<body>
+
+<header>
+    <h1>Observability 구축 (OpenTelemetry + SigNoz)</h1>
+    <p>
+        Kubernetes 환경에서 <span class="highlight">OpenTelemetry</span> 기반으로 인프라/애플리케이션 관측성을 구성하고,
+        <span class="highlight">SigNoz</span>를 통해 Trace 중심의 문제 추적과 성능 분석을 가능하게 만든 경험을 정리했습니다.
+        특히 “요청이 누가/어떤 파라미터로 들어왔고”, “어느 함수에서 얼마나 지연이 발생했는지”가 한 화면에서 보이도록
+        <span class="highlight">커스텀 Span Attribute 설계</span>와 <span class="highlight">함수 단위 트레이싱</span>을 적용했습니다.
+    </p>
+</header>
+
+<section>
+    <h2>1) 목표와 설계 방향</h2>
+
+    <div class="grid">
+        <div class="card">
+            <h3>목표</h3>
+            <ul>
+                <li><span class="highlight">요청 단위</span>로 “누가 / 어떤 요청을 / 어떤 파라미터로” 수행했는지 추적</li>
+                <li><span class="highlight">함수 단위</span>로 병목 지점을 빠르게 특정 (핵심 로직 직접 계측)</li>
+                <li>장애 대응 시 “로그만”으로 추측하지 않고 <span class="highlight">Trace Flamegraph</span>로 증거 기반 분석</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>구성 특징</h3>
+            <div class="kpi">
+                <div class="item">
+                    <div class="title">수집 범위</div>
+                    <div class="value">K8s Infra + App Trace</div>
+                </div>
+                <div class="item">
+                    <div class="title">전송 프로토콜</div>
+                    <div class="value">OTLP (gRPC)</div>
+                </div>
+                <div class="item">
+                    <div class="title">가시화/분석</div>
+                    <div class="value">SigNoz Trace UI</div>
+                </div>
+            </div>
+            <div style="margin-top:14px">
+                <span class="pill ok">Trace 중심 분석</span>
+                <span class="pill ok">요청/유저/파라미터 Attribute</span>
+                <span class="pill warn">민감정보(PII) 필터링 고려</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>데이터 흐름(개념)</h3>
+        <p class="muted">
+            인프라 수집(노드/파드/클러스터 메타)은 OTel k8s-infra 에이전트/콜렉터가 담당하고,
+            애플리케이션 트레이스는 Express/TSOA 요청 흐름에 Span을 생성해 OTLP로 SigNoz Collector에 전송합니다.
+        </p>
+        <pre>
+[App / Infra] --OTLP(gRPC 4317)--> [SigNoz OTel Collector] --> [ClickHouse] --> [SigNoz UI]
+    </pre>
+    </div>
+</section>
+
+<section>
+    <h2>2) Kubernetes 배포 구성</h2>
+
+    <div class="grid">
+        <div class="card">
+            <h3>k8s-infra (OpenTelemetry)</h3>
+            <p class="muted">
+                클러스터 메타/인프라 정보를 수집한 뒤, SigNoz Collector(OTLP gRPC)로 전달하도록 구성했습니다.
+            </p>
+            <pre>
+global:
+  cloud: others
+  clusterName: rmtech-local
+  deploymentEnvironment: dev
+otelCollectorEndpoint: signoz-otel-collector.signoz.svc.cluster.local:4317
+otelInsecure: true
+presets:
+  otlpExporter:
+    enabled: true
+  loggingExporter:
+    enabled: false
+  logsCollection:
+    enabled: false
+      </pre>
+            <ul>
+                <li><span class="highlight">otelCollectorEndpoint</span>를 SigNoz Collector로 지정하여 OTLP로 전달</li>
+                <li><span class="highlight">otelInsecure: true</span>로 내부 클러스터 통신 단순화 (환경에 따라 TLS 고려)</li>
+                <li>로그 수집은 범위 조절 목적상 비활성화 (필요 시 단계적 확장)</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>SigNoz (ClickHouse 기반)</h3>
+            <p class="muted">
+                SigNoz는 ClickHouse를 스토리지로 사용하며, 운영 편의성을 위해 스토리지클래스와 스케줄링 정책을 조정했습니다.
+            </p>
+            <pre>
+global:
+  storageClass: nfs-csi
+
+clickhouse:
+  installCustomStorageClass: true
+  tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: PreferNoSchedule
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: role
+            operator: In
+            values:
+            - master
+            - worker
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        preference:
+          matchExpressions:
+          - key: role
+            operator: In
+            values:
+            - master
+      </pre>
+            <ul>
+                <li><span class="highlight">storageClass: nfs-csi</span> 기반으로 영속화</li>
+                <li>노드 라벨(<span class="highlight">role</span>) 기반으로 스케줄링 제어</li>
+                <li>컨트롤 플레인에 대한 toleration 설정으로 운영 환경 제약 대응</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>SigNoz Ingress (Traefik)</h3>
+        <p class="muted">
+            SigNoz UI는 Traefik IngressRoute로 외부 접근을 제공했고, TLS를 적용했습니다.
+        </p>
+        <pre>
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: signoz
+  namespace: traefik
+spec:
+  entryPoints:
+    - web
+    - websecure
+    - tcp
+  routes:
+    - match: Host(`signoz.mobile-rmtechs.com`)
+      kind: Rule
+      services:
+        - name: signoz
+          namespace: signoz
+          port: 8080
+      middlewares:
+        - name: error-pages
+  tls:
+    secretName: traefik-tls
+    </pre>
+        <ul>
+            <li>웹 접근은 <span class="highlight">web/websecure</span> 엔트리포인트 사용</li>
+            <li>환경에 따라 TCP 엔트리포인트도 함께 운영 (필요 트래픽 대응)</li>
+            <li>장애 시 UX 개선을 위해 error-pages 미들웨어 적용</li>
+        </ul>
+    </div>
+</section>
+
+<section>
+    <h2>3) 애플리케이션 트레이싱 (요청/유저/파라미터까지 Span에 기록)</h2>
+
+    <div class="card">
+        <h3>핵심 포인트</h3>
+        <ul>
+            <li>
+                단순 “자동 계측”으로 끝내지 않고,
+                <span class="highlight">운영에서 진짜 필요한 정보</span>(요청 Body/Query/Params, 사용자 식별 정보 등)를
+                Span Attribute로 직접 기록
+            </li>
+            <li>
+                SigNoz UI에서 Trace를 열면,
+                <span class="highlight">누가(auth.id)/어떤 타입(auth.type)/어떤 파라미터로 호출했는지</span>가 바로 보이게 구성
+            </li>
+            <li>
+                Flamegraph/Span Tree로 “어느 함수에서 몇 ms 소요”되는지
+                <span class="highlight">병목 지점이 증거 기반으로</span> 드러남
+            </li>
+        </ul>
+
+        <div style="margin-top:14px">
+            <span class="pill ok">http.request.body</span>
+            <span class="pill ok">http.request.query</span>
+            <span class="pill ok">http.request.params</span>
+            <span class="pill ok">auth.id / auth.type / auth.role</span>
+            <span class="pill ok">code.function</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>TSOA Controller/Service에 붙이는 데코레이터 기반 Trace</h3>
+        <p class="muted">
+            메서드 호출을 Span으로 감싸고, Express Request를 감지하면 요청 정보와 인증 정보를 Attribute로 기록합니다.
+            에러 발생 시 recordException + setStatus(ERROR) 처리까지 포함해 실제 운영 분석에 필요한 형태로 구성했습니다.
+        </p>
+        <pre>
+export function Trace(target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
+  const original = descriptor.value;
+
+  descriptor.value = async function (...args: unknown[]) {
+    const span = trace.getTracer('default').startSpan(propertyKey, {
+      attributes: { 'code.function': propertyKey },
+    });
+
+    const req = args.find((a) => a && a.headers && a.method);
+    if (req) {
+      if (req.body)   span.setAttribute('http.request.body', JSON.stringify(req.body));
+      if (req.query)  span.setAttribute('http.request.query', JSON.stringify(req.query));
+      if (req.params) span.setAttribute('http.request.params', JSON.stringify(req.params));
+
+      if (req.user) {
+        if (req.user.id)   span.setAttribute('auth.id', req.user.id);
+        if (req.user.type) span.setAttribute('auth.type', req.user.type);
+        if (req.user.role) span.setAttribute('auth.role', req.user.role);
+      }
+    }
+
+    try {
+      const result = original.apply(this, args);
+
+      if (result instanceof Promise) {
+        return result
+          .catch((err) => {
+            span.recordException(err);
+            span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+            throw err;
+          })
+          .finally(() => span.end());
+      }
+
+      span.end();
+      return result;
+    } catch (err) {
+      span.recordException(err);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err.message });
+      span.end();
+      throw err;
+    }
+  };
+}
+    </pre>
+        <ul>
+            <li><span class="highlight">code.function</span>으로 함수/메서드 단위 식별을 명확히 기록</li>
+            <li>요청 정보(Body/Query/Params) + 사용자 정보(auth.*)를 Span에 직접 주입</li>
+            <li>Promise/Sync 모두 커버하여 <span class="highlight">span.end 누락</span> 방지</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>서비스 함수 단위 추적 (핵심 로직만 선택적으로 계측)</h3>
+        <p class="muted">
+            자동 계측만으로는 “중요한 내부 함수”의 소요 시간을 정확히 나누기 어렵기 때문에,
+            핵심 함수는 traceFunction으로 감싸서 <span class="highlight">함수 단위 Span</span>을 생성했습니다.
+        </p>
+        <pre>
+export function traceFunction(name: string, fn: T): T {
+  return async function (...args) {
+    const span = tracer.startSpan(name);
+
+    try {
+      const result = fn.apply(this, args);
+
+      if (isThenable(result)) {
+        try { return await result; }
+        catch (err) {
+          span.recordException(err);
+          span.setStatus({ code: SpanStatusCode.ERROR, message: err?.message });
+          throw err;
+        } finally {
+          span.end();
+        }
+      }
+
+      span.end();
+      return result;
+    } catch (err) {
+      span.recordException(err);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: err?.message });
+      span.end();
+      throw err;
+    }
+  } as unknown as T;
+}
+
+// 사용 예시:
+export const createCTLFreeS = traceFunction('createCTLFreeS', _createCTLFreeS);
+    </pre>
+        <ul>
+            <li>핵심 서비스 함수만 선택적으로 감싸서 “중요 로직”의 시간 분해가 가능</li>
+            <li>SigNoz Flamegraph에서 <span class="highlight">어느 함수가 병목인지 즉시 확인</span></li>
+            <li>에러 시 recordException + SpanStatusCode.ERROR로 장애 원인 분석 강화</li>
+        </ul>
+    </div>
+</section>
+
+<section>
+    <h2>4) 운영에서 보이는 효과 (SigNoz Trace UI 기준)</h2>
+
+    <div class="grid">
+        <div class="card">
+            <h3>요청 단위 증거 확보</h3>
+            <ul>
+                <li>auth.id / auth.type / auth.role로 “누가 호출했는지” 즉시 확인</li>
+                <li>http.request.body/query/params로 “어떤 값으로 호출했는지” 즉시 확인</li>
+                <li>이슈 재현 없이도 운영 트래픽에서 원인 파악 속도가 빨라짐</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>병목 지점 즉시 특정</h3>
+            <ul>
+                <li>Span Tree / Flamegraph로 처리 흐름이 한눈에 보임</li>
+                <li>request handler 내부에서 <span class="highlight">함수 단위 지연</span>을 분리해서 확인</li>
+                <li>“어느 구간이 느린지” 추정이 아니라 시간 데이터로 확인</li>
+            </ul>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <div>© RMTech – Observability Portfolio (OpenTelemetry + SigNoz)</div>
+</footer>
+
+</body>
+</html>
